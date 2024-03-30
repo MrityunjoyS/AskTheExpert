@@ -19,6 +19,8 @@ from kivymd.uix.dropdownitem import MDDropDownItem
 from kivy.uix.gridlayout import GridLayout
 from kivymd.uix.menu import MDMenu
 from kivymd.uix.menu import MDDropdownMenu
+from kivy.uix.image import Image
+from kivy.uix.image import AsyncImage
 
 
 class LoginScreen(Screen):
@@ -168,8 +170,170 @@ class Screen1(Screen):
             {"title": "Another Item", "description": "Description for Another Item"},
         ]
 
-
 class Screen2(Screen):
+    MAX_CONTENTS = 5  # Maximum number of contents allowed
+    MAX_TOTAL_SIZE_MB = 5  # Maximum total size allowed in MB
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.contents = []  # List to store uploaded files
+        self.total_size = 0  # Total size of uploaded files
+
+        self.popup = None
+        self.selected_file_label = Label(text="No file selected")
+        self.preview_layout = BoxLayout(orientation="vertical", spacing=10)
+
+        self.box_layout = MDBoxLayout(orientation="vertical", padding=20, spacing=20)
+        self.add_widget(self.box_layout)
+
+        self.toolbar = MDToolbar(
+            title="Screen 2",
+            pos_hint={"top": 1},
+        )
+        self.toolbar.left_action_items = [["arrow-left", lambda x: self.go_back()]]
+        self.box_layout.add_widget(self.toolbar)
+
+        # Upload profile picture button
+        self.upload_profile_button = MDFillRoundFlatButton(text="Upload Profile Picture")
+        self.upload_profile_button.bind(on_release=self.upload_profile_pic)
+        self.box_layout.add_widget(self.upload_profile_button)
+
+        self.layout = MDGridLayout(cols=1, spacing=10, size_hint_y=None)
+        self.layout.bind(minimum_height=self.layout.setter('height'))
+
+        self.phone_field = MDTextField(hint_text="Phone Number")
+        self.email_field = MDTextField(hint_text="Email")
+
+        self.dropdown_menu = MDTextField(hint_text="Select Option", readonly=True)
+        self.dropdown_menu.bind(focus=self.check_focus)
+
+        self.description_field = MDTextField(hint_text="Description", multiline=True)
+        self.keywords_field = MDTextField(hint_text="Keywords (comma separated)")
+        self.rating_field = MDTextField(hint_text="Rating (out of 10)", input_filter="float")
+
+        self.layout.add_widget(self.phone_field)
+        self.layout.add_widget(self.email_field)
+        self.layout.add_widget(self.dropdown_menu)
+        self.layout.add_widget(self.description_field)
+        self.layout.add_widget(self.keywords_field)
+        self.layout.add_widget(self.rating_field)
+
+        self.scroll_view = ScrollView()
+        self.scroll_view.add_widget(self.layout)
+        self.box_layout.add_widget(self.scroll_view)
+
+        # Upload proofs button
+        self.upload_proofs_button = MDFillRoundFlatButton(text="Upload Videos/Images/Documents of your skills")
+        self.upload_proofs_button.bind(on_release=self.upload_proof)
+        self.box_layout.add_widget(self.upload_proofs_button)
+
+        button_layout = MDBoxLayout(orientation="horizontal", spacing=10, size_hint_y=None, height="48dp")
+        self.save_button = MDFillRoundFlatButton(text="Save", on_release=self.save_data)
+        self.cancel_button = MDFillRoundFlatButton(text="Cancel", on_release=self.go_back)
+        button_layout.add_widget(self.save_button)
+        button_layout.add_widget(self.cancel_button)
+        self.box_layout.add_widget(button_layout)
+
+    def go_back(self, *args):
+        self.manager.current = "menu_screen"
+
+    def upload_profile_pic(self, *args):
+        # File chooser for photos and videos
+        file_chooser = FileChooserListView()
+        file_chooser.filters = ["*.jpg", "*.png", "*.jpeg"]
+        file_chooser.bind(on_submit=self.handle_photo_video_selection)
+
+        # Popup for uploading photos and videos
+        popup = Popup(title="Upload Profile Pic", content=file_chooser, size_hint=(None, None), size=(600, 400))
+        popup.open()
+
+    def upload_proof(self, *args):
+        # Check if the maximum number of contents has been reached
+        if len(self.contents) >= self.MAX_CONTENTS:
+            self.show_message("Maximum number of contents reached.")
+            return
+
+        # File chooser for photos and videos
+        file_chooser = FileChooserListView()
+        file_chooser.filters = ["*.jpg", "*.png", "*.jpeg", "*.mp4", "*.mov", "*.avi", "*.pdf", "*.doc", "*.docx"]
+        file_chooser.bind(on_submit=self.handle_photo_video_selection)
+
+        # Popup for uploading photos and videos
+        popup = Popup(title="Upload Photo/Video", content=file_chooser, size_hint=(None, None), size=(600, 400))
+        popup.open()
+
+    def handle_photo_video_selection(self, chooser, path, filename):
+        # Calculate the size of the selected file
+        file_size_mb = self.get_file_size_mb(path, filename)
+        
+        # Check if adding the file exceeds the maximum total size
+        if self.total_size + file_size_mb > self.MAX_TOTAL_SIZE_MB:
+            self.show_message("Maximum total size exceeded.")
+            return
+
+        # Update the total size
+        self.total_size += file_size_mb
+
+        # Add the selected file to the contents list
+        self.selected_file_info = {"type": "photo_video", "filename": filename, "path": path}
+
+        # Show the selected file preview
+        self.show_file_preview()
+
+    def show_file_preview(self):
+        # Clear existing preview widgets
+        self.preview_layout.clear_widgets()
+
+        # Show preview based on the selected file type
+        if self.selected_file_info["type"] == "photo_video":
+            # Display image preview
+            path = self.selected_file_info["path"]
+            image_preview = AsyncImage(source=str(path), size_hint=(None, None), size=(200, 200))
+            self.preview_layout.add_widget(image_preview)
+
+        # Add upload button
+        upload_button = Button(text="Upload", size_hint=(None, None), size=(100, 50))
+        upload_button.bind(on_release=self.upload_file)
+        self.preview_layout.add_widget(upload_button)
+
+    def upload_file(self, instance):
+        # Call the backend API to upload the file
+        # Pass the file information (path, filename) to the backend
+        # Handle the upload response from the backend
+        pass
+
+    def get_file_size_mb(self, path, filename):
+        # Logic to calculate file size in MB
+        return 0  # Placeholder for actual implementation
+
+    def check_focus(self, instance, value):
+        if value:
+            self.show_menu(instance)
+
+    def show_menu(self, instance):
+        menu_content = BoxLayout(orientation='vertical', spacing=10)
+        for item_text in ["Item 1", "Item 2", "Item 3"]:
+            item_button = Button(text=item_text)
+            item_button.bind(on_release=lambda btn, txt=item_text: self.handle_dropdown_selection(instance, txt))
+            menu_content.add_widget(item_button)
+
+        menu = Popup(
+            title='Select Option',
+            content=menu_content,
+            size_hint=(None, None),
+            size=(200, 200),
+        )
+        menu.open()
+
+    def handle_dropdown_selection(self, instance, selected_item):
+        instance.text = selected_item
+        instance.focus = False
+
+    def save_data(self, *args):
+        pass
+
+
+class Screen22(Screen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.popup = None
